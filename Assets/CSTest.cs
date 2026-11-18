@@ -1,7 +1,8 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-
+using Unity.Collections;
+using UnityEngine.Rendering;
 public class CSTest : MonoBehaviour
 {
 	[SerializeField] ComputeShader cs;
@@ -16,16 +17,15 @@ public class CSTest : MonoBehaviour
 	int kernel_CalculateAcceleration, kernel_AddAcceleration, kernel_ApplyAcceleration;
 	void Start()
 	{
-		kernel_CalculateAcceleration = cs.FindKernel("FluidSimStep");
-		kernel_AddAcceleration = cs.FindKernel("FluidApplyVelocity");
-		kernel_ApplyAcceleration = cs.FindKernel("ApplyAcceleration");
+		kernel_CalculateAcceleration = cs.FindKernel("FluidCalculateAcceleration");
+		kernel_AddAcceleration = cs.FindKernel("FluidAddAcceleration");
+		kernel_ApplyAcceleration = cs.FindKernel("FluidApplyAcceleration");
 
 		velocityMap = CreateFluidMap();
 		accelerationMap = CreateFluidMap();
 		Material velocityMatCloned = Instantiate(velocityMaterial); 
 		AssignTexture(velocityMatCloned,velocityMap);
 		AssignMat(velocityDisplay, velocityMatCloned);
-
 
 
 		cs.SetTexture(kernel_CalculateAcceleration, "velocityMap", velocityMap);
@@ -38,6 +38,8 @@ public class CSTest : MonoBehaviour
 		// cs.SetInts("dimentions", new int[]{velocityMap.width, velocityMap.height});
 
 
+		data = new NativeArray<Color>(velocityMap.width*velocityMap.height, Allocator.Persistent);
+		RequestData();
 		pastMousePos = GetMousePos();
 	}
 	Vector2 GetMousePos(){
@@ -47,6 +49,7 @@ public class CSTest : MonoBehaviour
 	Vector2 pastMousePos;
 	void FixedUpdate()
 	{
+		
 		cs.SetFloat("inv_halfBleedoverSpeed", 1/(150f));
 		cs.SetFloat("timeScale", Time.fixedDeltaTime*50*1f);
 
@@ -70,7 +73,7 @@ public class CSTest : MonoBehaviour
 		mat.SetTexture("_MainTex", texture);
 	}
 	RenderTexture CreateFluidMap(){
-		RenderTexture r = new RenderTexture(256, 128, 16, RenderTextureFormat.RGFloat);
+		RenderTexture r = new RenderTexture(256, 128, 16, RenderTextureFormat.ARGBFloat);
 		r.enableRandomWrite = true;
 		r.filterMode = FilterMode.Point;
 		return r;
@@ -103,5 +106,20 @@ public class CSTest : MonoBehaviour
 		uint x, y, z;
 		cs.GetKernelThreadGroupSizes(kernelID, out x, out y, out z);
 		return ((int)x,(int)y,(int)z);
+	}
+	System.Diagnostics.Stopwatch sw = new System.Diagnostics.Stopwatch();
+	NativeArray<Color> data;
+	[ContextMenu("Request")]
+	void RequestData(){
+		sw.Start();
+		AsyncGPUReadback.RequestIntoNativeArray(ref data, velocityMap, 0/*mip index*/, 0/*x*/, velocityMap.width/*width*/,0/*y*/, velocityMap.height/*height*/,0/*z*/,1/*depth*/,TextureFormat.RGBAFloat,OnRequestComplete);
+	}
+	void OnRequestComplete(AsyncGPUReadbackRequest completedRequest){
+		sw.Stop();
+		Debug.Log($"Elapsed={sw.Elapsed}");
+		sw.Reset();
+	}
+	void OnDestroy(){
+		// data.Dispose();
 	}
 }

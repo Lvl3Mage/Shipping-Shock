@@ -55,6 +55,8 @@ Shader "Unlit/OceanShader"
                 // sample the texture
                 // return sin(i.uv.x*10)/2 + 0.5;
                 i.uv *= _Scale;
+                // float angle = _Time.x;
+                // return sin(i.uv.x*sin(angle) + i.uv.y*cos(angle) + _Time.y);
                 float2 MaskCoords = i.uv.xy * 25;
                 float2 OffsetCoords = i.uv.xy * 10;
                 float mask = saturate(sin(MaskCoords.x/10 + _Time.y*0.3)+sin(MaskCoords.y/15 + _Time.y*0.2)+sin(MaskCoords.y/25 + _Time.y*0.2 )*(sin(MaskCoords.x/15 + _Time.y)));//*;

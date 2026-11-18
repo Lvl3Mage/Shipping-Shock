@@ -468,6 +468,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   inertia: 0.02
+  sampleRadius: 0.5
+  sampleCount: 9
+  streamCenterPull: 1
 --- !u!58 &7978210560338207851
 CircleCollider2D:
   m_ObjectHideFlags: 0

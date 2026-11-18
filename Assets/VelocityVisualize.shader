@@ -6,11 +6,12 @@ Shader "Unlit/VelocityVisualize"
     }
     SubShader
     {
-        Tags { "RenderType"="Opaque" }
+        Tags { "Queue"="Transparent" "IgnoreProjector"="True" "RenderType"="Transparent"}
         LOD 100
 
         Pass
         {
+            Blend SrcAlpha OneMinusSrcAlpha
             CGPROGRAM
             #pragma vertex vert
             #pragma fragment frag
@@ -51,7 +52,8 @@ Shader "Unlit/VelocityVisualize"
                 col.r = abs(col.r);
                 col.b = abs(col.g);
                 col.g = (col.r+col.b)/2;
-                return col/20;
+                col.a = 0.6;
+                return col;
             }
             ENDCG
         }

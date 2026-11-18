@@ -1,7 +1,7 @@
 // Each #kernel tells which function to compile; you can have many kernels
-#pragma kernel FluidSimStep
-#pragma kernel FluidApplyVelocity
-#pragma kernel ApplyAcceleration
+#pragma kernel FluidCalculateAcceleration
+#pragma kernel FluidAddAcceleration
+#pragma kernel FluidApplyAcceleration
 
 // Create a RenderTexture with enableRandomWrite flag and set it
 // with cs.SetTexture
@@ -10,6 +10,8 @@ RWTexture2D<float2> accelerationMap;
 // RWTexture2D<float2> pressureMap;
 
 float inv_halfBleedoverSpeed;
+float blurSpeed;
+float decaySpeed;
 float timeScale;
 float2 appliedVelocity;
 int2 appliedPoint;
@@ -99,50 +101,56 @@ void ApplyVelocityBleedover(int2 coord){
 
 	accelerationMap[coord] -= frontAcceleration + leftAcceleration + rightAcceleration;
 }
-void ApplyVelocityBlur(int2 coord){
+void ApplyVelocityBlur(int2 coord){//TODO add blur strength variable
 	float2 velocity = velocityMap[coord];
 	for(int i = -1; i <= 1; i++){
 		for(int j = -1; j <= 1; j++){
 			if(i != 0 || j != 0){
 				int2 coordOffset = int2(i,j);
-				accelerationMap[coord + coordOffset] += velocity*0.02*timeScale;
+				accelerationMap[coord + coordOffset] += velocity*blurSpeed*timeScale;
 			}
 		}
 	}
-	accelerationMap[coord] += -velocity*0.02*8*timeScale;
+	accelerationMap[coord] += -velocity*blurSpeed*8*timeScale;
 }
+void ApplyVelocityDecay(int2 coord){//TODO add blur strength variable
+	float2 velocity = velocityMap[coord];
+	accelerationMap[coord] += -velocity*decaySpeed*timeScale;
+}
+// void ApplyVelocityPull(int2 coord){
+// 	float2 velocity = velocityMap[coord];
+// 	float magnitude = length(velocity);
+// 	for(int i = -1; i <= 1; i++){
+// 		for(int j = -1; j <= 1; j++){
+// 			if(i != 0 || j != 0){
+// 				int2 coordOffset = int2(i,j);
+// 				accelerationMap[coord + coordOffset] -= coordOffset*blurSpeed*timeScale*magnitude*magnitude;
+// 			}
+// 		}
+// 	}
+// 	accelerationMap[coord] += -velocity*blurSpeed*3*timeScale*magnitude;
+// }
 [numthreads(32,32,1)]
-void FluidSimStep (uint3 id : SV_DispatchThreadID)
+void FluidCalculateAcceleration (uint3 id : SV_DispatchThreadID)
 {
 	int2 coord = id.xy*3 + blockOffset;
-	//sets up current result pixel
 
-	// float pressure = CalculatePressure(coord)/8;
-	// pressureMap[coord] = pressure;
-	// return;
-	// accelerationMap[coord] += acceleration;
-	// MAAAAYbe try making the velocity bleed backwards too, just waaaay more expanded and sloowly. 
-	
 	ApplyVelocityBleedover(coord);
 	ApplyVelocityBlur(coord);
+	ApplyVelocityDecay(coord);
 }
 
 [numthreads(16,16,1)]
-void FluidApplyVelocity (uint3 id : SV_DispatchThreadID)
+void FluidAddAcceleration (uint3 id : SV_DispatchThreadID)
 {
-	// TODO: insert actual code here!
 	int2 coord = id.xy;
 	coord += appliedPoint;
 	int2 relCoord = id.xy - int2(8,8);
 	float strength = saturate(1 - length(float2(relCoord.x, relCoord.y))/8.0);
-
-	// if(coord.x < 0 || coord.x > dimentions.x || coord.y < 0 || coord.y > dimentions.y){return;}
-
 	accelerationMap[coord.xy] += appliedVelocity*timeScale*strength;
 }
 [numthreads(32,32,1)]
-void ApplyAcceleration (uint3 id : SV_DispatchThreadID){
+void FluidApplyAcceleration (uint3 id : SV_DispatchThreadID){
 	velocityMap[id.xy] += accelerationMap[id.xy];
-	// pressureMap[id.xy] = accelerationMap[id.xy];
 	accelerationMap[id.xy] = 0;
 }
